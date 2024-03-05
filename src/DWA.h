@@ -22,7 +22,7 @@ private:
     double predict_time=1.0;//轨迹推算时间长度
     double a_vmax=0.4,a_wmax=200*PI/180; //线加速度和角加速度最大值
     double v_sample=0.01,w_sample=0.1*PI/180; //采样分辨率
-    double alpha=0.3,beta=0.0,gamma=1.0; //轨迹评价函数系数
+    double alpha=0.5,beta=1.0,gamma=1.0; //轨迹评价函数系数
     double radius=0.6; // 用于判断是否到达目标点（应该是小车的半径）
     double judge_distance=10; //若与障碍物的最小距离大于阈值（例如这里设置的阈值为robot_radius+0.2）,则设为一个较大的常值
     double L=0.18; //前后轮距
@@ -48,7 +48,7 @@ public:
 
     VectorXd kinematicModel(VectorXd state, vector<double>control,double dt);
 
-    pair<vector<double>,vector<VectorXd>> dwaControl(VectorXd state, Vector2d goal, vector<Vector2d>obstacle);
+    pair<vector<double>,vector<VectorXd>> dwaControl(VectorXd state, Vector2d goal, const vector<Vector2d> &obstacle);
 
 };
 

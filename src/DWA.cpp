@@ -38,7 +38,7 @@ vector<double> DWA::calAccelLimit(double v, double w) {
  * @param obstacle 障碍物位置
  * @return 移动机器人不与周围障碍物发生碰撞的速度空间Va
  */
-vector<double> DWA::calObstacleLimit(VectorXd state, vector<Vector2d> obstacle) {
+vector<double> DWA::calObstacleLimit(VectorXd state, const vector<Vector2d> &obstacle) {
     double v_low=v_min;
     double v_high = sqrt(2*_dist(state,obstacle)*a_vmax);
     double w_low =w_min;
@@ -54,7 +54,7 @@ vector<double> DWA::calObstacleLimit(VectorXd state, vector<Vector2d> obstacle) 
  * @param obstacle 障碍物位置
  * @return [v_low,v_high,w_low,w_high]: 最终采样后的速度空间
  */
-vector<double> DWA::calDynamicWindowVel(double v, double w,VectorXd state, vector<Vector2d> obstacle) {
+vector<double> DWA::calDynamicWindowVel(double v, double w,VectorXd state, const vector<Vector2d> &obstacle) {
 
 
     vector<double> Vm = calVelLimit();
@@ -75,7 +75,7 @@ vector<double> DWA::calDynamicWindowVel(double v, double w,VectorXd state, vecto
  * @param obstacle 所有障碍物位置
  * @return 移动机器人距离障碍物最近的几何距离
  */
-double DWA::_dist(VectorXd state, vector<Vector2d> obstacle) {
+double DWA::_dist(VectorXd state, const vector<Vector2d> &obstacle) {
     double min_dist = 100000;
     for(Vector2d obs:obstacle){
         double distance = (obs-state.head(2)).norm();
@@ -128,7 +128,7 @@ vector<VectorXd> DWA::trajectoryPredict(VectorXd state, double v, double w) {
  * @param obstacle 障碍物位置，dim:[num_ob,2]
  * @return 最优控制量、最优轨迹
  */
-pair<vector<double>, vector<VectorXd>>DWA::trajectoryEvaluation(VectorXd state, Vector2d goal, vector<Vector2d> obstacle) {
+pair<vector<double>, vector<VectorXd>>DWA::trajectoryEvaluation(VectorXd state, Vector2d goal, const vector<Vector2d> &obstacle) {
     double G_max = -10000000; //最优评价
     vector<VectorXd> trajectory_opt; //最优轨迹
     trajectory_opt.push_back(state);
@@ -210,7 +210,7 @@ double DWA::_velocity(vector<VectorXd> trajectory) {
  * @param obstacle 障碍物位置，dim:[num_ob,2]
  * @return 距离评价值
  */
-double DWA::_distance(vector<VectorXd> trajectory, vector<Vector2d> obstacle) {
+double DWA::_distance(vector<VectorXd> trajectory, const vector<Vector2d> &obstacle) {
     double min_r = 10000000;
     for(Vector2d obs:obstacle){
         for(VectorXd state:trajectory){
@@ -233,7 +233,7 @@ double DWA::_distance(vector<VectorXd> trajectory, vector<Vector2d> obstacle) {
  * @param obstacle 障碍物位置，dim:[num_ob,2]
  * @return  最优控制量[v,w]、最优轨迹
  */
-pair<vector<double>, vector<VectorXd>> DWA::dwaControl(VectorXd state, Vector2d goal, vector<Vector2d> obstacle) {
+pair<vector<double>, vector<VectorXd>> DWA::dwaControl(VectorXd state, Vector2d goal, const vector<Vector2d> &obstacle) {
     pair<vector<double>, vector<VectorXd>> res = trajectoryEvaluation(state,goal,obstacle);
     return res;
 }

@@ -111,7 +111,7 @@ private:
 	double cal_angle(double);
 
 	//calculate distance of the target
-	double cal_distance(double min_angle, double max_angle,vector<float> lid);
+	double cal_distance(double min_angle, double max_angle,const vector<float> &lid);
 
 	bool nav();//路径规划
 	bool move();//移动

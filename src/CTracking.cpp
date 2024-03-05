@@ -17,6 +17,9 @@ int s_time=0;
 float s_cs=0;
 float s_ls=0;
 
+double obj_min_angle = 0;
+double obj_max_angel = 0;
+
 
 
 //回调函数
@@ -587,7 +590,9 @@ void CTracking::run()
 
 		//距离(Lidar)
 		s_angle=cal_angle(((double)kresult.x+kresult.width/2)/640);
-		double dis = cal_distance(cal_angle((double)kresult.x/640),cal_angle((double)(kresult.x+kresult.width)/640),temp);
+		obj_min_angel = cal_angle((double)kresult.x/640);
+		obj_max_angel = cal_angle((double)(kresult.x+kresult.width)/640);
+		double dis = cal_distance(obj_min_angle, obj_max_angel,temp);
 		if(isnan(dis)){
 			dis = lastDis;
 		}
@@ -636,12 +641,25 @@ pair<double, double> CTracking::cal_vel(double distance, double angle) {
 	angle = angle * M_PI / 180;
 	if(distance < 0.6) { return {0.0, 0.0}; }
     //定义当前状态
-
     VectorXd state(5);
     state<<0.0, 0.0, speeds.second, speeds.first, 0.0;//[x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
+
     //计算目标点坐标
     Vector2d goal(distance * cos(angle), distance * sin(angle));
-    vector<Vector2d>obstacle;//障碍物位置（目前为空）
+
+	//计算障碍物位置
+    vector<Vector2d> obstacles;
+	std::vector<float> lid = lidar->getMsg();
+	int edge = 1;
+	for(int i = -135; i <= 135; i++) {
+		if(i < obj_min_angle - edge || i > obj_max_angel + edge) {
+			int index = ((360 - i) % 360) * 2;
+			if(lid[index] > MIN_DIS && lid[index] < MAX_DIS) {
+				Vector2d obstacle(lid[index] * cos(i), lid[index] * sin(i));
+				obstacles.push_back(obstacle);
+			}
+		}
+	}
 
     //初始化dwa
     DWA dwa;
@@ -716,18 +734,18 @@ double CTracking::cal_angle(double k) {
     return 0.0 - (atan((0.5 - k) * PAR_LEN / VER_LEN) / M_PI * 180);
 }
 
-double CTracking::cal_distance(double min_angle, double max_angle,vector<float> lid) {
+double CTracking::cal_distance(double min_angle, double max_angle, const vector<float>& lid) {
 
 	int min_a = round(min_angle);
     int max_a = round(max_angle);
 
-	auto distances = lid;
+	// auto distances = lid;
 	//store all distance in range
 	std::vector<double> angles;
     for(int i = min_a; i < max_a; i++) {
       int index = ((360 - i) % 360) * 2;
-      if(distances[index] > MIN_DIS && distances[index] < MAX_DIS) {
-        angles.push_back(distances[index]);
+      if(lid[index] > MIN_DIS && lid[index] < MAX_DIS) {
+        angles.push_back(lid[index]);
       }
     //   std::cout << distances[((360 - i) % 360) * 2] << ", ";
     }
