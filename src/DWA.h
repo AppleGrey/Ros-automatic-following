@@ -29,15 +29,15 @@ private:
 private:
     vector<double> calVelLimit();
     vector<double> calAccelLimit(double v, double w);
-    vector<double> calObstacleLimit(VectorXd state, vector<Vector2d> obstacle);
-    vector<double> calDynamicWindowVel(double v, double w,VectorXd state, vector<Vector2d> obstacle);
-    double _dist(VectorXd state, vector<Vector2d>obstacle);
+    vector<double> calObstacleLimit(VectorXd state, const vector<Vector2d> &obstacle);
+    vector<double> calDynamicWindowVel(double v, double w,VectorXd state, const vector<Vector2d>& obstacle);
+    double _dist(VectorXd state, cosnt vector<Vector2d>& obstacle);
     vector<VectorXd> trajectoryPredict(VectorXd state, double v, double w);
-    pair<vector<double>,vector<VectorXd>> trajectoryEvaluation(VectorXd state, Vector2d goal, vector<Vector2d>obstacle);
+    pair<vector<double>,vector<VectorXd>> trajectoryEvaluation(VectorXd state, Vector2d goal, const vector<Vector2d>& obstacle);
 
     double _heading(vector<VectorXd> trajectory,Vector2d goal);
     double _velocity(vector<VectorXd> trajectory);
-    double _distance(vector<VectorXd> trajectory,vector<Vector2d> obstacle);
+    double _distance(vector<VectorXd> trajectory, const vector<Vector2d>& obstacle);
 
 
 public:
