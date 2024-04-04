@@ -95,4 +95,6 @@ private:
 
 	float xmax=2;
 	float ymax=1;
+
+	std::vector<float> vec_old;
 };

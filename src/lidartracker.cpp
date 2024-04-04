@@ -12,6 +12,7 @@ void LidarTracker::init(cv::Rect r,std::vector<float> lid){
         p.y=cos(((float)a/2)/180*M_PI)*f;
         p.angle=(float)a/2;
         dataset.push_back(p);
+        std::cout<<"x:"<<p.x<<" y:"<<p.y<<std::endl;
         a++;
     }
     
@@ -60,7 +61,9 @@ void LidarTracker::init(cv::Rect r,std::vector<float> lid){
 
     //初始位置
     double scale = ((double)r.x+r.width/2)/640;
+    std::cout<<"scale:"<<scale<<std::endl;
     float angle = cal_angle(scale);
+    std::cout<<"angle:"<<angle<<std::endl;
 
     if(angle<0)
         angle=360+angle;
@@ -68,6 +71,14 @@ void LidarTracker::init(cv::Rect r,std::vector<float> lid){
     angle=(int)(angle/0.5)*0.5;
 
     std::cout<<"angle:"<<angle<<std::endl;
+
+    for(int i=0;i<res.size();i++){
+        for(point p : res[i]){
+            if(abs(angle-p.angle)<=1){
+                std::cout<<"x: "<<p.x<<" y:"<<p.y<<std::endl;
+            }
+        }
+    }
 
     int flag=-1;
     for(int i=0;i<res.size();i++){
@@ -89,6 +100,11 @@ void LidarTracker::init(cv::Rect r,std::vector<float> lid){
         }
     }
 
+    std::vector<float> vec_new;
+    for(point& p : res[flag]){
+        vec_new.push_back(sqrt(pow(p.x,2)+pow(p.y,2)));
+    }
+
     float tx=0;
     float ty=0;
     for(int k=0;k<res[flag].size();k++){
@@ -98,7 +114,7 @@ void LidarTracker::init(cv::Rect r,std::vector<float> lid){
 
     nx = tx/res[flag].size();
     ny = ty/res[flag].size();
-    // std::cout<<nx<<"m, "<<ny<<"m"<<std::endl;
+    std::cout<<nx<<"m, "<<ny<<"m"<<std::endl;
 
     cv::Point p2(nx*100+400,ny*100+400);
     cv::circle(img,p2,3,cv::Scalar(255,255,255),-1);
@@ -137,6 +153,8 @@ void LidarTracker::init(cv::Rect r,std::vector<float> lid){
 
     //release
     delete temp;
+    
+    exit(0);
 }
 
 cv::Rect LidarTracker::lidarForsee(std::vector<float> lid,cv::Mat& m){
@@ -256,6 +274,31 @@ cv::Rect LidarTracker::lidarForsee(std::vector<float> lid,cv::Mat& m){
 
 
     startTime = clock();
+
+    std::vector<float> vec_new;
+    for(point& p : res[flag]){
+        vec_new.push_back(sqrt(pow(p.x,2)+pow(p.y,2)));
+    }
+    std::vector<float> _vec_new;
+    std::vector<float> _vec_old;
+    _vec_new=vec_new;
+    _vec_old=vec_old;
+    //旧补全
+    if(vec_new.size()>=vec_old.size()){
+        for(int i=0;i<vec_new.size()-vec_old.size();i++){
+            _vec_old.push_back(0.01);
+        }
+    }
+    //新补全
+    if(vec_old.size()>vec_new.size()){
+        for(int i=0;i<vec_old.size()-vec_new.size();i++){
+            _vec_new.push_back(0.01);
+        }
+    }
+    conf = cv::EMD(_vec_new,_vec_old, 1);
+    conf=max(1-conf,float(0.0));
+    vec_old=vec_new;
+
     //更新
     nx=ruler[flag].x;
     ny=ruler[flag].y;
@@ -284,22 +327,22 @@ cv::Rect LidarTracker::lidarForsee(std::vector<float> lid,cv::Mat& m){
     // std::cout<<"------------------------------------------"<<std::endl;
 
     //追踪效果评定
-    float disT=0;//匹配距离
-    if(lidarStandard.size()==0){
-        conf=1;
-        lidarStandard = res[flag];
-    }
-    else{
-        for(int i=0;i<min(lidarStandard.size(),res[flag].size());i++){
-            disT+=sqrt(pow(lidarStandard[i].x-res[flag][i].x,2)+pow(lidarStandard[i].y-res[flag][i].y,2));
-        }
-        disT+=(float)abs((int)lidarStandard.size()-(int)res[flag].size())*maxD;
-        // std::cout<<"disT"<<disT<<std::endl;
-        // std::cout<<"maxD"<<(max(lidarStandard.size(),res[flag].size())*maxD)<<std::endl;
-        conf=1-disT/(max(lidarStandard.size(),res[flag].size())*maxD);
+    // float disT=0;//匹配距离
+    // if(lidarStandard.size()==0){
+    //     conf=1;
+    //     lidarStandard = res[flag];
+    // }
+    // else{
+    //     for(int i=0;i<min(lidarStandard.size(),res[flag].size());i++){
+    //         disT+=sqrt(pow(lidarStandard[i].x-res[flag][i].x,2)+pow(lidarStandard[i].y-res[flag][i].y,2));
+    //     }
+    //     disT+=(float)abs((int)lidarStandard.size()-(int)res[flag].size())*maxD;
+    //     // std::cout<<"disT"<<disT<<std::endl;
+    //     // std::cout<<"maxD"<<(max(lidarStandard.size(),res[flag].size())*maxD)<<std::endl;
+    //     conf=1-disT/(max(lidarStandard.size(),res[flag].size())*maxD);
         
-        lidarStandard = res[flag];
-    }
+    //     lidarStandard = res[flag];
+    // }
 
     //release
     delete temp;

@@ -77,7 +77,7 @@ vector<double> DWA::calDynamicWindowVel(double v, double w,VectorXd state, const
  */
 double DWA::_dist(VectorXd state, const vector<Vector2d> &obstacle) {
     double min_dist = 100000;
-    for(Vector2d obs:obstacle){
+    for(const Vector2d &obs:obstacle){
         double distance = (obs-state.head(2)).norm();
         min_dist = distance>min_dist?min_dist:distance;
     }
@@ -212,7 +212,7 @@ double DWA::_velocity(vector<VectorXd> trajectory) {
  */
 double DWA::_distance(vector<VectorXd> trajectory, const vector<Vector2d> &obstacle) {
     double min_r = 10000000;
-    for(Vector2d obs:obstacle){
+    for(const Vector2d &obs:obstacle){
         for(VectorXd state:trajectory){
             Vector2d dxy = obs-state.head(2);
             double r = dxy.norm();
@@ -220,6 +220,9 @@ double DWA::_distance(vector<VectorXd> trajectory, const vector<Vector2d> &obsta
         }
     }
     if(min_r<radius+0.2){
+        if(min_r < 0.1) {
+            return -1000;
+        }
         return min_r;
     }else{
         return judge_distance;

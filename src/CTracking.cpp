@@ -18,7 +18,7 @@ float s_cs=0;
 float s_ls=0;
 
 double obj_min_angle = 0;
-double obj_max_angel = 0;
+double obj_max_angle = 0;
 
 
 
@@ -179,6 +179,7 @@ void CTracking::init(){
 	}
 	else{
 		std::cout << "capture:False" << std::endl;
+		return;
 	}
 	
 
@@ -202,6 +203,7 @@ void CTracking::init(){
 	}
 	else{
 		std::cout << "lidar:False" << std::endl;
+		return;
 	}
 	std::cout << std::endl;
 
@@ -590,9 +592,9 @@ void CTracking::run()
 
 		//距离(Lidar)
 		s_angle=cal_angle(((double)kresult.x+kresult.width/2)/640);
-		obj_min_angel = cal_angle((double)kresult.x/640);
-		obj_max_angel = cal_angle((double)(kresult.x+kresult.width)/640);
-		double dis = cal_distance(obj_min_angle, obj_max_angel,temp);
+		obj_min_angle = cal_angle((double)kresult.x/640);
+		obj_max_angle = cal_angle((double)(kresult.x+kresult.width)/640);
+		double dis = cal_distance(obj_min_angle, obj_max_angle,temp);
 		if(isnan(dis)){
 			dis = lastDis;
 		}
@@ -651,10 +653,10 @@ pair<double, double> CTracking::cal_vel(double distance, double angle) {
     vector<Vector2d> obstacles;
 	std::vector<float> lid = lidar->getMsg();
 	int edge = 1;
-	for(int i = -135; i <= 135; i++) {
-		if(i < obj_min_angle - edge || i > obj_max_angel + edge) {
+	for(int i = -90; i <= 90; i+=3) {
+		if(i < obj_min_angle - edge || i > obj_max_angle + edge) {
 			int index = ((360 - i) % 360) * 2;
-			if(lid[index] > MIN_DIS && lid[index] < MAX_DIS) {
+			if(lid[index] > 0.01 && lid[index] < 1.8) {
 				Vector2d obstacle(lid[index] * cos(i), lid[index] * sin(i));
 				obstacles.push_back(obstacle);
 			}
@@ -663,7 +665,8 @@ pair<double, double> CTracking::cal_vel(double distance, double angle) {
 
     //初始化dwa
     DWA dwa;
-    pair<vector<double>, vector<VectorXd>> res = dwa.dwaControl(state,goal,obstacle);
+	vector<Vector2d> empty;
+    pair<vector<double>, vector<VectorXd>> res = dwa.dwaControl(state,goal,obstacles);
     // state = dwa.kinematicModel(state,res.first,dt);
     return {res.first[0], res.first[1]};
 }
