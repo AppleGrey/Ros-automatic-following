@@ -644,10 +644,10 @@ pair<double, double> CTracking::cal_vel(double distance, double angle) {
 	if(distance < 0.6) { return {0.0, 0.0}; }
     //定义当前状态
     VectorXd state(5);
-    state<<0.0, 0.0, speeds.second, speeds.first, 0.0;//[x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
+    state<< pos_x, pos_y, yaw, speeds.first, speeds.second;//[x(m), y(m), yaw(rad), v(m/s), omega(rad/s)]
 
     //计算目标点坐标
-    Vector2d goal(distance * cos(angle), distance * sin(angle));
+    Vector2d goal(pos_x + distance * cos(yaw + angle), pos_y + distance * sin(yaw + angle));
 
 	//计算障碍物位置
     vector<Vector2d> obstacles;
@@ -664,7 +664,6 @@ pair<double, double> CTracking::cal_vel(double distance, double angle) {
 	}
 
     //初始化dwa
-    DWA dwa;
 	vector<Vector2d> empty;
     pair<vector<double>, vector<VectorXd>> res = dwa.dwaControl(state,goal,obstacles);
     // state = dwa.kinematicModel(state,res.first,dt);
@@ -693,7 +692,12 @@ cv::Rect CTracking::lidarForsee(std::vector<float> input,cv::Mat& t1)
 	return showRect;
 }
 
-
+/** 
+	* @brief calculate linear and rotation speed
+	* @param rect  position of target
+	*
+	* @return the first value is linear speed and the second is rotation speed
+	*/
 std::pair<double, double> CTracking::cal_speed(double x,double w,double distance) {
 
 

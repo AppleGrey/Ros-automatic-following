@@ -135,18 +135,24 @@ pair<vector<double>, vector<VectorXd>>DWA::trajectoryEvaluation(VectorXd state, 
     vector<double>control_opt={0.,0.}; // 最优控制
     vector<double>dynamic_window_vel = calDynamicWindowVel(state(3),state(4),state,obstacle);//第1步--计算速度空间
 
-    double sum_heading =0.0,sum_dist=0.0,sum_vel=0.0;//统计全部采样轨迹的各个评价之和，便于评价的归一化
+    double sum_heading =0.0,sum_dist=0.0,sum_vel=0.0,sum_goal=0.0,sum_smooth=0.0,sum_path=0.0;//统计全部采样轨迹的各个评价之和，便于评价的归一化
     double v = dynamic_window_vel[0];
     double w = dynamic_window_vel[2];
     while(v<dynamic_window_vel[1]){
         while(w<dynamic_window_vel[3]){
             vector<VectorXd>trajectory = trajectoryPredict(state,v,w);
-            double heading_eval = alpha*_heading(trajectory,goal);
-            double dist_eval = beta*_distance(trajectory,obstacle);
-            double vel_eval = gamma*_velocity(trajectory);
+            double heading_eval = w_heading*_heading(trajectory,goal);
+            double dist_eval = w_distance*_distance(trajectory,obstacle);
+            double vel_eval = w_velocity*_velocity(trajectory);
+            double goal_eval = w_goal_distance*_goalDist(trajectory,goal);
+            double smooth_eval = w_smooth*_smooth({v,w});
+            double path_eval = w_path_overlap*_pathOverlap(trajectory);
             sum_vel+=vel_eval;
             sum_dist+=dist_eval;
             sum_heading+=heading_eval;
+            sum_goal+=goal_eval;
+            sum_smooth+=smooth_eval;
+            sum_path+=path_eval;
             w+=w_sample;
         }
         v+=v_sample;
@@ -161,7 +167,10 @@ pair<vector<double>, vector<VectorXd>>DWA::trajectoryEvaluation(VectorXd state, 
             double heading_eval = alpha*_heading(trajectory,goal)/sum_heading;
             double dist_eval = beta*_distance(trajectory,obstacle)/sum_dist;
             double vel_eval = gamma*_velocity(trajectory)/sum_vel;
-            double G = heading_eval+dist_eval+vel_eval; // 第3步--轨迹评价
+            double goal_eval = epsilon*_goalDist(trajectory,goal);
+            double smooth_eval = zeta*_smooth({v,w});
+            double path_eval = eta*_pathOverlap(trajectory);
+            double G = heading_eval+dist_eval+vel_eval+goal_eval+smooth_eval+path_eval; // 第3步--轨迹评价
 
             if(G_max<=G){
                 G_max = G;
@@ -184,12 +193,12 @@ pair<vector<double>, vector<VectorXd>>DWA::trajectoryEvaluation(VectorXd state, 
  * @param goal 目标点位置[x,y]
  * @return 方位角评价数值
  */
-double DWA::_heading(vector<VectorXd> trajectory, Vector2d goal) {
+double DWA::_heading(const vector<VectorXd>& trajectory, Vector2d goal) {
     Vector2d dxy = goal-trajectory[trajectory.size()-1].head(2);
     double error_angle = atan2(dxy(1),dxy(0));
     double cost_angle = error_angle-trajectory[trajectory.size()-1](2);
     double cost = PI-abs(cost_angle);
-    return cost;
+    return cost / PI;
 }
 
 /**
@@ -198,8 +207,8 @@ double DWA::_heading(vector<VectorXd> trajectory, Vector2d goal) {
  * @param trajectory 轨迹，dim:[n,5]
  * @return 速度评价值
  */
-double DWA::_velocity(vector<VectorXd> trajectory) {
-    return trajectory[trajectory.size()-1](3);
+double DWA::_velocity(const vector<VectorXd>& trajectory) {
+    return trajectory[trajectory.size()-1](3) / v_max;
 }
 
 /**
@@ -210,7 +219,7 @@ double DWA::_velocity(vector<VectorXd> trajectory) {
  * @param obstacle 障碍物位置，dim:[num_ob,2]
  * @return 距离评价值
  */
-double DWA::_distance(vector<VectorXd> trajectory, const vector<Vector2d> &obstacle) {
+double DWA::_distance(const vector<VectorXd>& trajectory, const vector<Vector2d> &obstacle) {
     double min_r = 10000000;
     for(const Vector2d &obs:obstacle){
         for(VectorXd state:trajectory){
@@ -221,12 +230,87 @@ double DWA::_distance(vector<VectorXd> trajectory, const vector<Vector2d> &obsta
     }
     if(min_r<radius+0.2){
         if(min_r < 0.1) {
-            return -1000;
+            return -10.0;
         }
-        return min_r;
+        return min_r / (radius+0.2);
     }else{
-        return judge_distance;
+        return 1.0;
     }
+}
+
+
+/**
+ * 目标点距离评价函数
+ * 表示当前速度下对应模拟轨迹与目标点之间的最近距离；
+ * @param trajectory 轨迹，dim:[n,5]
+ * @param goal 目标点位置[x,y]
+ * @return 目标点距离评价值
+*/
+double DWA::_goalDist(const vector<VectorXd>& trajectory, Vector2d goal) {
+    double dist = (goal-trajectory[0].head(2)).norm();
+    double min_r = dist;
+    for(VectorXd state:trajectory){
+        Vector2d dxy = goal-state.head(2);
+        double r = dxy.norm();
+        min_r = min_r>r?r:min_r;
+    }
+    return 1.0 - min_r / dist;
+}
+
+/**
+ * 平滑评价函数
+ * @param speeds 速度[v,w]
+ * @return 平滑评价值
+ */
+double DWA::_smooth(const Vector2d speeds) {
+    if(states.size()<2){
+        return 0.0;
+    }
+    double delta_v = abs(2 * states[states.size()-1](3) - speeds(0) - states[states.size()-2](3));
+    double delta_w = abs(2 * states[states.size()-1](4) - speeds(1) - states[states.size()-2](4));
+    return (2.0 - delta_v / a_vmax - delta_w / a_wmax) / 2.0;
+}
+
+/**
+ * 路径重合度评价函数
+ * @param trajectory 轨迹，dim:[n,5]
+ * @return 路径重合度评价值
+ */
+double DWA::_pathOverlap(const vector<VectorXd>& trajectory) {
+    if(states.size()<2){
+        return 0.0;
+    }
+    //判断trajectory与goal形成路径的重合度
+    double value = 0.0;
+    for(auto& state : trajectory) {
+        double min_dist = min_path_distance * 2;
+        bool start = false;
+        int cnt = 0;
+        for(int i = goals.size()-1; i>=1; i--) {
+            // 计算垂线段的长度
+            double dist = abs((goals[i] - goals[i-1]).cross(state.head(2) - goals[i-1])) / (goals[i] - goals[i-1]).norm();
+            
+            // 判断垂线段是否与线段相交
+            if (dist < 1e-6 || dist > (goals[i] - goals[i-1]).norm()) {
+                continue;
+            }
+            
+            // 判断垂线段的长度是否小于路径重合阈值
+            if (dist < min_path_distance && dist < min_dist) {
+                min_dist = dist;
+                start = true;
+                cnt = 0;
+            } else if (start) {
+                cnt++;
+                if (cnt > 10) {
+                    break;
+                }
+            }
+            if(i < goals.size() - 100) { break; } // 只考虑最近的100个目标点
+        }
+        value += min_dist;
+    }
+    return 1 - value / trajectory.size() / min_path_distance;
 }
 
 /**
@@ -237,6 +321,8 @@ double DWA::_distance(vector<VectorXd> trajectory, const vector<Vector2d> &obsta
  * @return  最优控制量[v,w]、最优轨迹
  */
 pair<vector<double>, vector<VectorXd>> DWA::dwaControl(VectorXd state, Vector2d goal, const vector<Vector2d> &obstacle) {
+    states.push_back(state);
+    goals.push_back(goal);
     pair<vector<double>, vector<VectorXd>> res = trajectoryEvaluation(state,goal,obstacle);
     return res;
 }

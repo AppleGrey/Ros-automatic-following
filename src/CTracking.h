@@ -80,6 +80,11 @@ private:
 	float vmin=0.3;
 	float lmin=0.7;
 
+	// 位姿
+	double pos_x = 0.0;
+	double pos_y = 0.0;
+	double yaw = 0.0; 
+
 
 	cv::VideoCapture* capture;//
 	fw::Lidar* lidar;//
@@ -98,12 +103,6 @@ private:
 	cv::Rect fusion(cv::Rect r1, cv::Rect r2);//
 
 	
-	/** 
-	* @brief calculate linear and rotation speed
-	* @param rect  position of target
-	*
-	* @return the first value is linear speed and the second is rotation speed
-	*/
 	std::pair<double, double> cal_speed(double x,double w,double distance);
 	std::pair<double, double> cal_vel(double distance, double angle);
 
@@ -132,4 +131,6 @@ private:
 	cv::Mat measurement;
 
 	cv::Mat visionStandard;//用于视觉评定
+	
+    DWA dwa; //用于dwa算法
 };
